@@ -142,11 +142,11 @@ export class AppController {
     password = await bcrypt.hash(plainPassword, saltOrRounds);
     try {
       //CHECK EMAIL
-      const existingUser = await this.userService.users({
-        where: { email: postData.email },
+      const existingUser = await this.userService.user({
+        email: postData.email,
       });
 
-      if (existingUser.length > 0) {
+      if (existingUser) {
         return {
           message: 'Email exist',
           user: { id: -1, ...postData },
@@ -162,6 +162,51 @@ export class AppController {
       return {
         message: 'User created successfully',
         user: { ...user, password: 'Successfully Encrypted.' },
+      };
+    } catch (error) {
+      console.error('500 Internal Server Error:', error);
+    }
+  }
+
+  @Post('sign_in')
+  async signInUser(
+    @Body()
+    postData: {
+      email: string;
+      password: string;
+    },
+  ): Promise<{ message: string; user: UserModel }> {
+    console.log('Received POST Data:', postData);
+    // HASHING
+    const plainPassword = postData.password;
+    try {
+      //CHECK EMAIL
+      const existingUser = await this.userService.user({
+        email: postData.email,
+      });
+
+      if (!existingUser) {
+        return {
+          message: `Account doesn't exist`,
+          user: { id: -1, name: '-1', ...postData },
+        };
+      }
+
+      const isMatch = await bcrypt.compare(
+        plainPassword,
+        existingUser.password,
+      );
+
+      if (!isMatch) {
+        return {
+          message: `Wrong password`,
+          user: { id: -1, name: '-1', ...postData },
+        };
+      }
+
+      return {
+        message: 'LogIn successfull',
+        user: { ...existingUser, password: 'Successfully Encrypted.' },
       };
     } catch (error) {
       console.error('500 Internal Server Error:', error);
