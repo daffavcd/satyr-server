@@ -15,6 +15,8 @@ import {
   TravelDestination as TravelDestinationModel,
 } from '@prisma/client';
 
+import * as bcrypt from 'bcrypt';
+
 @Controller()
 export class AppController {
   constructor(
@@ -28,6 +30,8 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
+
+  // TRAVEL ROUTES
 
   @Get('travels/:id')
   async getTravel(@Param('id') id: string): Promise<TravelDestinationModel> {
@@ -106,23 +110,66 @@ export class AppController {
     return this.travelService.deleteTravelDestination({ id: Number(id) });
   }
 
-  @Post('user')
-  async signupUser(
-    @Body() userData: { name?: string; email: string },
-  ): Promise<UserModel> {
-    return this.userService.createUser(userData);
+  // USER ROUTES
+
+  @Get('users/:id')
+  async getUser(@Param('id') id: string): Promise<UserModel> {
+    return this.userService.user({ id: Number(id) });
   }
 
-  // @Put('publish/:id')
-  // async publishPost(@Param('id') id: string): Promise<TravelDestinationModel> {
-  //   return this.travelService.updateTravelDestination({
-  //     where: { id: Number(id) },
-  //     data: { published: true },
-  //   });
-  // }
+  @Get('users')
+  async getUsers(): Promise<UserModel[]> {
+    return this.userService.users({
+      orderBy: { id: 'desc' },
+    });
+  }
 
-  @Delete('post/:id')
-  async deletePost(@Param('id') id: string): Promise<TravelDestinationModel> {
-    return this.travelService.deleteTravelDestination({ id: Number(id) });
+  @Post('sign_up')
+  async createUser(
+    @Body()
+    postData: {
+      name: string;
+      email: string;
+      password: string;
+    },
+  ): Promise<{ message: string; user: UserModel }> {
+    console.log('Received POST Data:', postData);
+    const { name, email } = postData;
+    let password = '';
+    // HASHING
+    const saltOrRounds = 10;
+    const plainPassword = postData.password;
+    password = await bcrypt.hash(plainPassword, saltOrRounds);
+    try {
+      //CHECK EMAIL
+      const existingUser = await this.userService.users({
+        where: { email: postData.email },
+      });
+
+      if (existingUser.length > 0) {
+        return {
+          message: 'Email exist',
+          user: { id: -1, ...postData },
+        };
+      }
+
+      const user = await this.userService.createUser({
+        name,
+        email,
+        password,
+      });
+
+      return {
+        message: 'User created successfully',
+        user: { ...user, password: 'Successfully Encrypted.' },
+      };
+    } catch (error) {
+      console.error('500 Internal Server Error:', error);
+    }
+  }
+
+  @Delete('users/:id')
+  async deleteUser(@Param('id') id: string): Promise<UserModel> {
+    return this.userService.deleteUser({ id: Number(id) });
   }
 }
